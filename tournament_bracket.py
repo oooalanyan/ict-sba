@@ -1,6 +1,3 @@
-# Chinese Chess Knockdown System (tournament_bracket.py)
-# Everything (CSV I/O, bracket draw, BYEs, progression, seed saving, and HTML generation) is done in Python.
-
 import sys
 import os
 import csv
@@ -11,7 +8,6 @@ CSV_FILE = "participants_sample.csv"
 STATE_FILE = "tournament_state.json"
 
 
-# 1. Read CSV into 2-Tier Nested Dictionary
 def read_csv(filename=CSV_FILE):
     players = {}
     with open(filename, "r", encoding="utf-8-sig") as f:
@@ -26,7 +22,6 @@ def read_csv(filename=CSV_FILE):
     return players
 
 
-# 2. Save 2-Tier Nested Dictionary to CSV
 def save_csv(players, next_seed_ids=None, filename=CSV_FILE):
     with open(filename, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
@@ -36,8 +31,6 @@ def save_csv(players, next_seed_ids=None, filename=CSV_FILE):
             is_seed = (pid in next_seed_ids) if next_seed_ids is not None else p["is_seed"]
             writer.writerow([pid, p["name"], p["school"], "True" if is_seed else "False"])
 
-
-# 3. Sort Player IDs (Bubble Sort: Seeds first, then by School)
 def sort_players(players):
     ids = [int(k) for k in players.keys()]
     n = len(ids)
@@ -57,8 +50,6 @@ def sort_players(players):
                 ids[j + 1] = temp
     return ids
 
-
-# 4. Binary Search by Player ID
 def binary_search(players, target_id):
     keys = sorted([int(k) for k in players.keys()])
     low = 0
@@ -74,7 +65,6 @@ def binary_search(players, target_id):
     return None
 
 
-# 5. Build Tournament Bracket (Upper & Lower halves, School & Seed separation, BYEs)
 def build_tournament(players):
     ids = [int(k) for k in players.keys()]
     total = len(ids)
@@ -163,8 +153,6 @@ def build_tournament(players):
     sync_rounds(players, rounds)
     return {"size": size, "players": players, "rounds": rounds}
 
-
-# 6. Sync Next Rounds & Save Top 4 Semi-Finalists to CSV when Final finishes
 def sync_rounds(players, rounds):
     for r in range(1, len(rounds)):
         for m in range(len(rounds[r])):
@@ -184,8 +172,6 @@ def sync_rounds(players, rounds):
                 next_seeds.append(int(sm["p2"]))
         save_csv(players, next_seeds)
 
-
-# 7. Generate HTML in Python so JS only displays it
 def build_ui_response(state):
     players = state["players"]
     rounds = state["rounds"]
