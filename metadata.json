@@ -1,0 +1,8 @@
+{
+  "name": "Remix Inter-School Tournament Bracket Generator \u0026 SBA System",
+  "description": "Comprehensive tournament bracket generation system for Inter-School Chinese Chess Competition (HKDSE ICT SBA Option C), featuring 2-tier nested dictionaries, seed and school separation, automated Bye allocation, ASCII UI visualization, Excel data I/O, line-by-line code explanations, and 30+ slide English technical presentation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

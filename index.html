@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inter-School Tournament Bracket Generator & SBA System</title>
+    <meta name="description" content="Comprehensive tournament bracket generation system for Inter-School Chinese Chess Competition (HKDSE ICT SBA Option C), featuring 2-tier nested dictionaries, seed and school separation, automated Bye allocation, ASCII UI visualization, Excel data I/O, line-by-line code explanations, and 30+ slide English technical presentation." />
+    <meta property="og:title" content="Inter-School Tournament Bracket Generator & SBA System" />
+    <meta property="og:description" content="Comprehensive tournament bracket generation system for Inter-School Chinese Chess Competition (HKDSE ICT SBA Option C), featuring 2-tier nested dictionaries, seed and school separation, automated Bye allocation, ASCII UI visualization, Excel data I/O, line-by-line code explanations, and 30+ slide English technical presentation." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1>Inter-School Chinese Chess Tournament Bracket System</h1>
+
+    <!-- Bracket Display Area -->
+    <div id="bracket"></div>
+
+    <!-- Bottom Section: Info Bar above Import / Export / Next Tournament Buttons -->
+    <div class="bottom-bar">
+      <div class="box" id="info">Loading...</div>
+
+      <input type="file" id="file-input" accept=".csv" style="display:none" />
+      <button class="big-btn" style="background:#99ccff" id="btn-import">Import CSV</button>
+      <button class="big-btn" style="background:#99ff99" id="btn-export">Export CSV</button>
+      <button class="big-btn" style="background:#ffff99" id="btn-next">Start Next Round (Load CSV)</button>
+
+      <div id="msg" style="margin-top:8px; font-weight:bold; color:blue;">
+        Click a player in any match to advance them. Top 4 semi-finalists will be saved to CSV as seeds for the next tournament.
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
