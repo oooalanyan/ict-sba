@@ -1,34 +1,29 @@
 <?php
-// Simple PHP script to load and save CSV (api.php)
-header('Content-Type: application/json; charset=utf-8');
-$file = 'participants_sample.csv';
-$action = $_GET['action'] ?? 'load';
+// api.php - Thin pass-through to tournament_bracket.py
+$action = $_GET['action'] ?? 'init';
 
-if ($action === 'load') {
-    $players = [];
-    if (($f = fopen($file, 'r')) !== false) {
-        fgetcsv($f); // Skip header row
-        while (($row = fgetcsv($f)) !== false) {
-            if (count($row) >= 4) {
-                $id = intval($row[0]);
-                $players[$id] = [
-                    'name' => trim($row[1]),
-                    'school' => trim($row[2]),
-                    'is_seed' => strtolower(trim($row[3])) === 'true'
-                ];
-            }
-        }
-        fclose($f);
-    }
-    echo json_encode(['players' => $players]);
-} elseif ($action === 'save') {
-    $data = json_decode(file_get_contents('php://input'), true);
-    if (!empty($data['players']) && ($f = fopen($file, 'w')) !== false) {
-        fputcsv($f, ['player_id', 'name', 'school', 'is_seed']);
-        foreach ($data['players'] as $id => $p) {
-            fputcsv($f, [$id, $p['name'], $p['school'], $p['is_seed'] ? 'True' : 'False']);
-        }
-        fclose($f);
-        echo json_encode(['status' => 'ok']);
-    }
+if ($action === 'export') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="tournament_participants.csv"');
+    echo shell_exec('python3 tournament_bracket.py export');
+    exit;
+}
+
+header('Content-Type: application/json; charset=utf-8');
+
+if ($action === 'import') {
+    $desc = [0 => ['pipe', 'r'], 1 => ['pipe', 'w']];
+    $proc = proc_open('python3 tournament_bracket.py import', $desc, $pipes);
+    fwrite($pipes[0], file_get_contents('php://input'));
+    fclose($pipes[0]);
+    echo stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    proc_close($proc);
+} elseif ($action === 'win') {
+    $r = intval($_GET['r'] ?? 0);
+    $m = intval($_GET['m'] ?? 0);
+    $id = intval($_GET['id'] ?? 0);
+    echo shell_exec("python3 tournament_bracket.py win $r $m $id");
+} else {
+    echo shell_exec('python3 tournament_bracket.py init');
 }
