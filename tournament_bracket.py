@@ -1,8 +1,8 @@
-# HKDSE ICT SBA Option C - Inter-School Chinese Chess Tournament System (tournament_bracket.py)
+# Chinese Chess Knockdown System (tournament_bracket.py)
 import csv
 import random
 
-# 1. Read CSV into 2-Tier Nested Dictionary
+# 1. Read CSV into 2-Tier Nested Dictionary (No tuples used)
 def read_csv(filename="participants_sample.csv"):
     players = {}
     with open(filename, "r", encoding="utf-8-sig") as f:
@@ -23,35 +23,34 @@ def save_csv(players, filename="participants_sample.csv"):
         writer.writerow(["player_id", "name", "school", "is_seed"])
         for pid in sorted(players.keys()):
             p = players[pid]
-            writer.writerow([pid, p["name"], p["school"], "True" if p["is_seed"] else "False"])
+            seed_text = "True" if p["is_seed"] else "False"
+            writer.writerow([pid, p["name"], p["school"], seed_text])
 
-# 3. Validate Data (10-32 players, max 2 per school)
-def validate_data(players):
-    if len(players) < 10 or len(players) > 32:
-        return False
-    school_count = {}
-    for pid, p in players.items():
-        sch = p["school"]
-        school_count[sch] = school_count.get(sch, 0) + 1
-        if school_count[sch] > 2:
-            return False
-    return True
-
-# 4. Sort Players (Seeds first, then School) & Binary Search by ID
+# 3. Sort Player IDs (Bubble Sort: Seeds first, then by School)
 def sort_players(players):
-    items = list(players.items())
-    n = len(items)
+    ids = list(players.keys())
+    n = len(ids)
     for i in range(n):
         for j in range(0, n - i - 1):
-            k1 = (not items[j][1]["is_seed"], items[j][1]["school"])
-            k2 = (not items[j + 1][1]["is_seed"], items[j + 1][1]["school"])
-            if k1 > k2:
-                items[j], items[j + 1] = items[j + 1], items[j]
-    return items
+            id1 = ids[j]
+            id2 = ids[j + 1]
+            swap = False
+            if players[id1]["is_seed"] == False and players[id2]["is_seed"] == True:
+                swap = True
+            elif players[id1]["is_seed"] == players[id2]["is_seed"]:
+                if players[id1]["school"] > players[id2]["school"]:
+                    swap = True
+            if swap:
+                temp = ids[j]
+                ids[j] = ids[j + 1]
+                ids[j + 1] = temp
+    return ids
 
+# 4. Binary Search by Player ID
 def binary_search(players, target_id):
     keys = sorted(players.keys())
-    low, high = 0, len(keys) - 1
+    low = 0
+    high = len(keys) - 1
     while low <= high:
         mid = (low + high) // 2
         if keys[mid] == target_id:
@@ -62,37 +61,59 @@ def binary_search(players, target_id):
             high = mid - 1
     return None
 
-# 5. Generate Upper and Lower Brackets (School separation, Seed separation, BYE allocation)
+# 5. Generate Upper and Lower Brackets (Supports ANY number of players, no tuples)
 def generate_bracket(players):
     total = len(players)
-    size = 16 if total <= 16 else 32
+    size = 2
+    while size < total:
+        size = size * 2
+
     half_size = size // 2
-    needed_upper = half_size - ((size - total) // 2)
+    needed_upper = (total + 1) // 2
 
     schools = {}
-    for pid, p in players.items():
-        schools.setdefault(p["school"], []).append(pid)
+    for pid in players:
+        sch = players[pid]["school"]
+        if sch not in schools:
+            schools[sch] = []
+        schools[sch].append(pid)
 
-    upper_ids, lower_ids, single_ids = [], [], []
+    upper_ids = []
+    lower_ids = []
+    single_ids = []
 
-    # Separate same-school pairs into Upper and Lower halves
-    for sch, pids in schools.items():
+    # Separate players from the same school into Upper and Lower halves
+    for sch in schools:
+        pids = schools[sch]
         if len(pids) == 2:
             random.shuffle(pids)
             upper_ids.append(pids[0])
             lower_ids.append(pids[1])
         else:
-            single_ids.append(pids[0])
+            for id_val in pids:
+                single_ids.append(id_val)
 
-    # Balance seeds and fill remaining slots
-    seeds = [i for i in single_ids if players[i]["is_seed"]]
-    normals = [i for i in single_ids if not players[i]["is_seed"]]
+    seeds = []
+    normals = []
+    for pid in single_ids:
+        if players[pid]["is_seed"]:
+            seeds.append(pid)
+        else:
+            normals.append(pid)
+
     random.shuffle(seeds)
     random.shuffle(normals)
 
     for pid in seeds + normals:
-        up_seeds = sum(1 for i in upper_ids if players[i]["is_seed"])
-        low_seeds = sum(1 for i in lower_ids if players[i]["is_seed"])
+        up_seeds = 0
+        for i in upper_ids:
+            if players[i]["is_seed"]:
+                up_seeds += 1
+        low_seeds = 0
+        for i in lower_ids:
+            if players[i]["is_seed"]:
+                low_seeds += 1
+
         if players[pid]["is_seed"] and up_seeds > low_seeds and len(lower_ids) < (total - needed_upper):
             lower_ids.append(pid)
         elif len(upper_ids) < needed_upper:
@@ -102,30 +123,47 @@ def generate_bracket(players):
 
     def build_half(pids):
         m_count = half_size // 2
-        s_list = [i for i in pids if players[i]["is_seed"]]
-        n_list = [i for i in pids if not players[i]["is_seed"]]
+        s_list = []
+        n_list = []
+        for i in pids:
+            if players[i]["is_seed"]:
+                s_list.append(i)
+            else:
+                n_list.append(i)
+
         random.shuffle(s_list)
         random.shuffle(n_list)
         ordered = s_list + n_list
 
-        matches = [[None, None] for _ in range(m_count)]
+        matches = []
         for i in range(m_count):
-            matches[i][0] = ordered[i]
+            matches.append({"p1": None, "p2": None})
+
+        for i in range(m_count):
+            if i < len(ordered):
+                matches[i]["p1"] = ordered[i]
+
         pos = m_count
         for i in range(m_count - 1, -1, -1):
             if pos < len(ordered):
-                matches[i][1] = ordered[pos]
+                matches[i]["p2"] = ordered[pos]
                 pos += 1
+
         if m_count > 2:
-            matches[1], matches[-1] = matches[-1], matches[1]
+            temp = matches[1]
+            matches[1] = matches[m_count - 1]
+            matches[m_count - 1] = temp
+
         return matches
 
-    upper_bracket = build_half(upper_ids)
-    lower_bracket = build_half(lower_ids)
-    return upper_bracket, lower_bracket
+    result = {
+        "upper": build_half(upper_ids),
+        "lower": build_half(lower_ids)
+    }
+    return result
 
 if __name__ == "__main__":
     db = read_csv()
-    if validate_data(db):
-        up, low = generate_bracket(db)
-        print("Bracket generated! Upper matches:", len(up), "Lower matches:", len(low))
+    bracket = generate_bracket(db)
+    print("Total players:", len(db))
+    print("Upper matches:", len(bracket["upper"]), "Lower matches:", len(bracket["lower"]))

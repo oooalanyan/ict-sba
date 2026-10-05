@@ -33,15 +33,18 @@ function loadCsv(text) {
       const isSeed = p[p.length - 1].trim().toLowerCase() === 'true';
       const name = p[1].trim();
       const school = p.slice(2, p.length - 1).join(',').replace(/"/g, '').trim();
-      if (id > 0 && name) players[id] = { name, school, is_seed: isSeed };
+      if (id > 0 && name) {
+        players[id] = { name: name, school: school, is_seed: isSeed };
+      }
     }
   }
 }
 
-// Convert players to CSV (optional seedOverrideIds for next round's top 4 seeds)
 function toCsvText(seedOverrideIds = null) {
   let out = 'player_id,name,school,is_seed\r\n';
-  for (const id of Object.keys(players).map(Number).sort((a, b) => a - b)) {
+  const ids = Object.keys(players).map(Number).sort((a, b) => a - b);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
     const p = players[id];
     const sch = p.school.includes(',') ? `"${p.school}"` : p.school;
     const isSeed = seedOverrideIds ? seedOverrideIds.includes(id) : p.is_seed;
@@ -50,26 +53,32 @@ function toCsvText(seedOverrideIds = null) {
   return out;
 }
 
-// 2. Build Upper & Lower Brackets (School separation, Seed separation, BYE calculation)
+// 2. Build Upper & Lower Brackets (Supports ANY number of players)
 function buildTournament() {
   const ids = Object.keys(players).map(Number);
   const total = ids.length;
-  const size = total <= 16 ? 16 : 32;
+  let size = 2;
+  while (size < total) {
+    size = size * 2;
+  }
   const halfSize = size / 2;
-  const neededUpper = halfSize - Math.floor((size - total) / 2);
+  const neededUpper = Math.ceil(total / 2);
 
   // Group by school
   const schools = {};
-  for (const id of ids) {
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
     const s = players[id].school;
     if (!schools[s]) schools[s] = [];
     schools[s].push(id);
   }
 
-  const upperIds = [], lowerIds = [], singles = [];
+  const upperIds = [];
+  const lowerIds = [];
+  const singles = [];
+
   for (const s in schools) {
     if (schools[s].length === 2) {
-      // Split same-school players into opposite halves
       if (Math.random() < 0.5) {
         upperIds.push(schools[s][0]);
         lowerIds.push(schools[s][1]);
@@ -78,13 +87,16 @@ function buildTournament() {
         lowerIds.push(schools[s][0]);
       }
     } else {
-      singles.push(...schools[s]);
+      for (let j = 0; j < schools[s].length; j++) {
+        singles.push(schools[s][j]);
+      }
     }
   }
 
-  // Distribute single-player schools while balancing seeds across halves
+  // Sort singles: seeds first, then random
   singles.sort((a, b) => (players[b].is_seed ? 1 : 0) - (players[a].is_seed ? 1 : 0) || (Math.random() - 0.5));
-  for (const id of singles) {
+  for (let i = 0; i < singles.length; i++) {
+    const id = singles[i];
     const upSeeds = upperIds.filter(x => players[x].is_seed).length;
     const lowSeeds = lowerIds.filter(x => players[x].is_seed).length;
     if (players[id].is_seed && upSeeds > lowSeeds && lowerIds.length < total - neededUpper) {
@@ -96,22 +108,38 @@ function buildTournament() {
     }
   }
 
-  // Create Round 1 matches for one half (Seeds get BYEs first and are placed at opposite ends)
   function makeHalf(pids) {
-    const mCount = halfSize / 2;
+    const mCount = Math.max(1, halfSize / 2);
     const seeds = pids.filter(i => players[i].is_seed).sort(() => Math.random() - 0.5);
     const norms = pids.filter(i => !players[i].is_seed).sort(() => Math.random() - 0.5);
-    const list = [...seeds, ...norms];
+    const list = seeds.concat(norms);
 
-    const matches = Array.from({ length: mCount }, () => ({ p1: null, p2: null, win: null }));
-    for (let i = 0; i < mCount; i++) matches[i].p1 = list[i];
+    const matches = [];
+    for (let i = 0; i < mCount; i++) {
+      matches.push({ p1: null, p2: null, win: null });
+    }
+
+    for (let i = 0; i < mCount; i++) {
+      if (i < list.length) {
+        matches[i].p1 = list[i];
+      }
+    }
 
     let pos = mCount;
     for (let i = mCount - 1; i >= 0; i--) {
-      if (pos < list.length) matches[i].p2 = list[pos++];
-      else matches[i].win = matches[i].p1; // BYE auto-advance
+      if (pos < list.length) {
+        matches[i].p2 = list[pos];
+        pos++;
+      } else {
+        matches[i].win = matches[i].p1; // BYE auto-advance
+      }
     }
-    if (mCount > 2) [matches[1], matches[mCount - 1]] = [matches[mCount - 1], matches[1]];
+
+    if (mCount > 2) {
+      const temp = matches[1];
+      matches[1] = matches[mCount - 1];
+      matches[mCount - 1] = temp;
+    }
     return matches;
   }
 
@@ -122,12 +150,16 @@ function buildTournament() {
   rounds = [upperMatches.concat(lowerMatches)];
   for (let r = 1; r < totalRounds; r++) {
     const count = rounds[r - 1].length / 2;
-    rounds.push(Array.from({ length: count }, () => ({ p1: null, p2: null, win: null })));
+    const nextRound = [];
+    for (let m = 0; m < count; m++) {
+      nextRound.push({ p1: null, p2: null, win: null });
+    }
+    rounds.push(nextRound);
   }
   syncNextRounds();
 }
 
-// 3. Sync Round Progression & Save Top 4 Semi-Finalists to CSV for the NEXT Tournament
+// 3. Sync Round Progression & Save Top 4 Semi-Finalists to CSV for the NEXT Round
 function syncNextRounds() {
   for (let r = 1; r < rounds.length; r++) {
     for (let m = 0; m < rounds[r].length; m++) {
@@ -139,45 +171,42 @@ function syncNextRounds() {
     }
   }
 
-  // When Grand Final is finished, save the Top 4 (Semi-Finalists) to savedCsv for the NEXT game
-  // (Do NOT overwrite current players[id].is_seed so current game still displays original seeds)
   const finalMatch = rounds[rounds.length - 1][0];
-  const semiRound = rounds[rounds.length - 2];
+  const semiRound = rounds.length >= 2 ? rounds[rounds.length - 2] : rounds[0];
   if (finalMatch && finalMatch.win) {
     const nextSeeds = [];
-    for (const sm of semiRound) {
-      if (sm.p1) nextSeeds.push(sm.p1);
-      if (sm.p2) nextSeeds.push(sm.p2);
+    for (let i = 0; i < semiRound.length; i++) {
+      if (semiRound[i].p1) nextSeeds.push(semiRound[i].p1);
+      if (semiRound[i].p2) nextSeeds.push(semiRound[i].p2);
     }
     savedCsv = toCsvText(nextSeeds);
 
     const nextPlayersPayload = {};
     for (const id in players) {
       nextPlayersPayload[id] = {
-        ...players[id],
+        name: players[id].name,
+        school: players[id].school,
         is_seed: nextSeeds.includes(Number(id))
       };
     }
-    fetch('/api.php?action=save', {
+    fetch('./api.php?action=save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ players: nextPlayersPayload })
     }).catch(() => {});
-
-    const champ = players[finalMatch.win];
-    const nextSeedNames = nextSeeds.map(id => `#${id} ${players[id].name}`).join(', ');
-    document.getElementById('msg').textContent =
-      `Tournament Finished! Champion: #${finalMatch.win} ${champ.name} (${champ.school}). Top 4 [${nextSeedNames}] saved to CSV as Seeds for the next round!`;
   }
 }
 
 // 4. Render UI
 function render() {
   const total = Object.keys(players).length;
-  const size = total <= 16 ? 16 : 32;
+  let size = 2;
+  while (size < total) {
+    size = size * 2;
+  }
   const seedNames = Object.keys(players).filter(i => players[i].is_seed).map(i => `#${i} ${players[i].name}`);
   document.getElementById('info').innerHTML =
-    `<b>Players:</b> ${total} | <b>Bracket Size:</b> ${size} | <b>Byes:</b> ${size - total} | <b>Current Seeds:</b> ${seedNames.join(', ')}`;
+    `<b>Players:</b> ${total} | <b>Bracket Size:</b> ${size} | <b>Byes:</b> ${size - total} | <b>Current Seeds:</b> ${seedNames.join(', ') || 'None'}`;
 
   function renderBtn(r, m, pid, isSlot2) {
     const match = rounds[r][m];
@@ -218,7 +247,9 @@ function render() {
 
   box.querySelectorAll('.p-btn[data-id]').forEach(btn => {
     btn.onclick = () => {
-      const r = Number(btn.dataset.r), m = Number(btn.dataset.m), id = Number(btn.dataset.id);
+      const r = Number(btn.dataset.r);
+      const m = Number(btn.dataset.m);
+      const id = Number(btn.dataset.id);
       if (rounds[r][m].p1 && rounds[r][m].p2) {
         rounds[r][m].win = id;
         syncNextRounds();
@@ -240,7 +271,6 @@ document.getElementById('file-input').onchange = (e) => {
     loadCsv(savedCsv);
     buildTournament();
     render();
-    document.getElementById('msg').textContent = 'CSV imported and bracket generated!';
   };
   reader.readAsText(file, 'utf-8');
 };
@@ -257,7 +287,6 @@ document.getElementById('btn-next').onclick = () => {
   loadCsv(savedCsv);
   buildTournament();
   render();
-  document.getElementById('msg').textContent = 'Loaded latest CSV with the new 4 Seeds and started a new tournament!';
 };
 
 // Initial Start
