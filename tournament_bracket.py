@@ -201,24 +201,24 @@ def build_ui_response(state):
     num_rounds = len(rounds)
     for r in range(num_rounds):
         if r == num_rounds - 1:
-            title = "Grand Final"
+            round_name = "Grand Final"
         elif r == num_rounds - 2:
-            title = "Semi-Finals"
+            round_name = "Semi-Finals"
         else:
-            title = f"Round {r + 1}"
+            round_name = f"Round {r + 1}"
 
-        bracket_html += f'<div class="col"><div class="col-title">{title}</div>'
+        bracket_html += '<div class="col">'
         for m in range(len(rounds[r])):
-            if r == num_rounds - 1:
-                half_label = "Final"
+            if len(rounds[r]) == 1:
+                match_label = f"Match {m + 1} {round_name}"
             elif m < len(rounds[r]) // 2:
-                half_label = "Upper Half"
+                match_label = f"Upper Half - Match {m + 1} {round_name}"
             else:
-                half_label = "Lower Half"
+                match_label = f"Lower Half - Match {m + 1} {round_name}"
 
             b1 = make_btn(r, m, rounds[r][m]["p1"], False)
             b2 = make_btn(r, m, rounds[r][m]["p2"], True)
-            bracket_html += f'<div class="match"><div style="font-size:11px;color:#555">{half_label} - Match {m + 1}</div>{b1}{b2}</div>'
+            bracket_html += f'<div class="match"><div style="font-size:11px;color:#555">{match_label}</div>{b1}{b2}</div>'
         bracket_html += "</div>"
 
     champ_id = rounds[-1][0]["win"]
@@ -226,9 +226,9 @@ def build_ui_response(state):
         cp = players[str(champ_id)] if str(champ_id) in players else players[champ_id]
         champ_html = f"#{champ_id} {cp['name']}<br><small>{cp['school']}</small>"
     else:
-        champ_html = "TBD"
+        champ_html = "&nbsp;"
 
-    bracket_html += f'<div class="col"><div class="col-title" style="background:gold">Champion</div><div class="box" style="font-size:16px;font-weight:bold">{champ_html}</div></div>'
+    bracket_html += f'<div class="col"><div class="match"><div style="font-size:11px;color:#555">Champion</div><div style="font-size:15px;font-weight:bold;text-align:center;padding:12px 6px;">{champ_html}</div></div></div>'
 
     return {"info_html": info_html, "bracket_html": bracket_html}
 
